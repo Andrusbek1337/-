@@ -1,0 +1,141 @@
+class Dubo: # Класс, представляющий дерево гнезд и логику доставки писем.    
+    def __init__(self): # Инициализация
+        self.tree = {}
+        self.letters = {}
+        self.parent = {}
+        self.paths = {}
+
+
+    def build_tree(self, M, data): # Строит дерево гнезд
+        self.tree = {i: [] for i in range(1, M + 1)}
+        self.letters = {i: 0 for i in range(1, M + 1)}
+        self.parent = {1: None}  # Гнездо 1 - корень дерева
+
+        for i in range(1, M + 1):
+            parts = data[i - 1]
+            ni = parts[0]
+            li = parts[1]
+            neighbors = parts[2:]
+            
+            self.letters[i] = li
+            
+            for neighbor in neighbors: # Строим связи между гнездами
+                if neighbor not in self.parent:
+                    self.parent[neighbor] = i
+                    self.tree[i].append(neighbor)
+
+
+    def compute_paths(self): # Вычисляет пути от корня до каждого гнезда
+        for target in range(1, len(self.tree) + 1):
+            path = []
+            current = target
+            
+            while current is not None:
+                path.append(current)
+                current = self.parent.get(current, None)
+            
+            path.reverse()
+            self.paths[target] = path
+
+
+    def count_apologies(self): #  Подсчитывает количество необходимых извинений.
+ 
+        targets = {node for node in range(1, len(self.tree)+1) 
+                  if self.letters[node] > 0}
+        
+        apologies_needed = set()
+        
+        for target in targets:
+            path = self.paths[target]
+            
+            for node in path:
+                if node != target:
+                    if self.letters[node] == 0 or node in targets:
+                        apologies_needed.add(node)
+        
+        return len(apologies_needed)
+
+
+class UserInterface: # Класс для взаимодействия с пользователем и работы с файлами    
+    def __init__(self): # Инициализация интерфейса пользователя
+        self.dubo = Dubo()
+        self.input_filename = "input.txt"
+        self.output_filename = "output.txt"
+
+
+    def read_data(self): # Читает данные из входного файла
+        try:
+            with open(self.input_filename, 'r') as file:
+                lines = [line.strip() for line in file if line.strip()]
+                M = int(lines[0])  # Первая строка - количество гнезд
+                data = []
+                
+                for line in lines[1:M + 1]: # Остальные строки - данные о гнездах
+                    parts = list(map(int, line.split()))
+                    data.append(parts)
+                    
+                return M, data
+                
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Файл '{self.input_filename}' не найден.")
+        except Exception as e:
+            raise ValueError(f"Ошибка при чтении файла: {e}")
+
+
+    def validate_data(self, M, data): # Проверяет корректность входных данных
+        if M <= 0 or M >= 1000:
+            raise ValueError("Количество гнезд должно быть 0 < M < 1000.")
+        if len(data) != M:
+            raise ValueError("Количество строк данных не соответствует M.")
+            
+        for i in range(M):
+            parts = data[i]
+            ni = parts[0]    # Количество соседей
+            li = parts[1]    # Количество писем
+            neighbors = parts[2:]  # Список соседей
+            
+            if ni != len(neighbors):
+                raise ValueError(f"Несоответствие количества соседей для гнезда {i+1}.")
+            if any(n < 1 or n > M for n in neighbors):
+                raise ValueError(f"Некорректный номер соседа для гнезда {i+1}.")
+
+
+    def process_data(self, M, data): # Обрабатывает данные и возвращает результат
+        self.dubo.build_tree(M, data)
+        self.dubo.compute_paths()
+        return self.dubo.count_apologies()
+
+
+    def write_output(self, result): # Записывает результат в файл
+        try:
+            with open(self.output_filename, 'w') as file:
+                file.write(str(result))
+            print(f"Результат записан в '{self.output_filename}'.")
+        except Exception as e:
+            raise IOError(f"Ошибка записи: {e}")
+
+
+    def run(self): # Основной метод запуска программы
+        print("Программа для подсчета извинений мудрого тритона.")
+        
+        try:
+            
+            M, data = self.read_data() # 1. Чтение данных
+            
+            self.validate_data(M, data) # 2. Проверка данных
+            
+            result = self.process_data(M, data) # 3. Обработка и получение результата
+            
+            self.write_output(result) # 4. Запись результата
+            
+        except FileNotFoundError as e:
+            print(f"Ошибка: {e}")
+        except ValueError as e:
+            print(f"Ошибка данных: {e}")
+        except Exception as e:
+            print(f"Неожиданная ошибка: {e}")
+
+
+if __name__ == '__main__': # Создаем и запускаем интерфейс пользователя
+    ui = UserInterface()
+    ui.run()
