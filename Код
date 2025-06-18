@@ -38,8 +38,7 @@ class Dubo: # Класс, представляющий дерево гнезд �
             self.paths[target] = path
 
 
-    def count_apologies(self): #  Подсчитывает количество необходимых извинений.
- 
+    def count_apologies(self): # Подсчитывает количество необходимых извинений.
         targets = {node for node in range(1, len(self.tree)+1) 
                   if self.letters[node] > 0}
         
@@ -54,6 +53,39 @@ class Dubo: # Класс, представляющий дерево гнезд �
                         apologies_needed.add(node)
         
         return len(apologies_needed)
+
+
+    def get_tree_visualization(self, node=1, prefix="", is_last=True, visited=None): # Визуализацию дерева гнезд.
+        if visited is None:
+            visited = set()
+        
+        # Символы для отрисовки дерева
+        connectors = {
+            "space": "    ",
+            "branch": "│   ",
+            "tee": "├── ",
+            "last": "└── "
+        }
+        
+        # Формируем строку для текущего узла
+        line = prefix
+        line += connectors["last"] if is_last else connectors["tee"]
+        line += f"Гнездо {node}"
+        if self.letters[node] > 0:
+            line += f" (письма: {self.letters[node]})"
+        yield line
+        
+        visited.add(node)
+        
+        # Рекурсивно обрабатываем дочерние узлы
+        if node in self.tree:
+            children = [child for child in self.tree[node] if child not in visited]
+            new_prefix = prefix + (connectors["space"] if is_last else connectors["branch"])
+            for i, child in enumerate(children):
+                is_last_child = i == len(children) - 1
+                yield from self.get_tree_visualization(child, new_prefix, is_last_child, visited)
+
+
 
 
 class UserInterface: # Класс для взаимодействия с пользователем и работы с файлами    
@@ -84,7 +116,7 @@ class UserInterface: # Класс для взаимодействия с пол�
 
     def validate_data(self, M, data): # Проверяет корректность входных данных
         if M <= 0 or M >= 1000:
-            raise ValueError("Количество гнезд должно быть 0 < M < 1000.")
+            raise ValueError("Количество гнёзд должно быть 0 < M < 1000.")
         if len(data) != M:
             raise ValueError("Количество строк данных не соответствует M.")
             
@@ -100,16 +132,13 @@ class UserInterface: # Класс для взаимодействия с пол�
                 raise ValueError(f"Некорректный номер соседа для гнезда {i+1}.")
 
 
-    def process_data(self, M, data): # Обрабатывает данные и возвращает результат
-        self.dubo.build_tree(M, data)
-        self.dubo.compute_paths()
-        return self.dubo.count_apologies()
-
-
     def write_output(self, result): # Записывает результат в файл
         try:
-            with open(self.output_filename, 'w') as file:
-                file.write(str(result))
+            with open(self.output_filename, 'w', encoding='utf-8') as file:
+                file.write(f"Количество извинений: {result}\n\n")
+                file.write("Структура дерева гнёзд:\n")
+                for line in self.dubo.get_tree_visualization():
+                    file.write(line + "\n")
             print(f"Результат записан в '{self.output_filename}'.")
         except Exception as e:
             raise IOError(f"Ошибка записи: {e}")
@@ -119,14 +148,21 @@ class UserInterface: # Класс для взаимодействия с пол�
         print("Программа для подсчета извинений мудрого тритона.")
         
         try:
+            # 1. Чтение данных
+            M, data = self.read_data()
             
-            M, data = self.read_data() # 1. Чтение данных
+            # 2. Проверка данных
+            self.validate_data(M, data)
             
-            self.validate_data(M, data) # 2. Проверка данных
+            # 3. Построение дерева и вычисление путей
+            self.dubo.build_tree(M, data)
+            self.dubo.compute_paths()
             
-            result = self.process_data(M, data) # 3. Обработка и получение результата
+            # 4. Подсчет извинений
+            result = self.dubo.count_apologies()
             
-            self.write_output(result) # 4. Запись результата
+            # 5. Запись результата
+            self.write_output(result)
             
         except FileNotFoundError as e:
             print(f"Ошибка: {e}")
